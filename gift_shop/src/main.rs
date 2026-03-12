@@ -1,6 +1,8 @@
-use std::{fs, io};
+use std::{error::Error, fs, io, ops::Add};
 
 use thiserror::Error;
+
+static EXPECT_MSG: &str = "If n is a silly number, sandwich(n) is guaranteed to exist.";
 
 #[derive(Debug, Error, PartialEq)]
 enum IOError {
@@ -26,16 +28,40 @@ enum ParseError {
     InvalidRangeOrder { input: String },
     #[error("failed to parse number: '{input}'")]
     InvalidNumber { input: String },
-    #[error("number is too large for the range type: '{input}'")]
-    Overflow { input: String },
 }
 
 // Range reps an inclusive range of values to be checked.
-type RangeType = u32;
+type RangeType = u64;
 #[derive(Debug, PartialEq, Clone)]
 struct Range {
     start: RangeType,
     end: RangeType,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct Digits(RangeType);
+
+impl Add for Digits {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let Self(l) = self;
+        let Self(r) = rhs;
+        Self(l + r)
+    }
+}
+
+struct SillyIterator {
+    curr: RangeType,
+}
+
+impl Iterator for SillyIterator {
+    type Item = RangeType;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.curr = next_silly_number(self.curr);
+        Some(self.curr)
+    }
 }
 
 fn parse_file(s: String) -> Result<Vec<Range>, ParseError> {
@@ -81,6 +107,58 @@ fn parse_range(s: &str) -> Result<Range, ParseError> {
     Ok(Range { start, end })
 }
 
+fn is_silly_number(n: RangeType) -> bool {
+    let sandwich = match sandwich(n) {
+        Some(sw) => sw,
+        None => return false,
+    };
+    match n % sandwich {
+        0 => true,
+        _ => false,
+    }
+}
+
+fn silly_numbers_in_range(r: Range) -> Vec<RangeType> {
+    let Range { start, end } = r;
+    let silly_iter = SillyIterator { curr: start - 1 };
+    let silly_nums = silly_iter.take_while(|&n| n <= end).collect();
+
+    silly_nums
+}
+
+fn next_silly_number(n: RangeType) -> RangeType {
+    if is_silly_number(n) && is_silly_number(n + sandwich(n).expect(EXPECT_MSG)) {
+        n + sandwich(n).expect(EXPECT_MSG)
+    } else if is_silly_number(n) {
+        let x = sandwich_digits(digits(n) + Digits(2)).expect("even digits + 2 is even");
+        x * (x / 10)
+    } else if let Some(sw) = sandwich(n) {
+        n + sw - (n % sw)
+    } else {
+        let x = sandwich_digits(digits(n) + Digits(1)).expect("even digits + 2 is even");
+        x * (x / 10)
+    }
+}
+
+fn sandwich(n: RangeType) -> Option<RangeType> {
+    sandwich_digits(digits(n))
+}
+
+fn digits(n: RangeType) -> Digits {
+    if n == 0 {
+        return Digits(1);
+    }
+    Digits(RangeType::ilog10(n) as RangeType + 1)
+}
+
+fn sandwich_digits(d: Digits) -> Option<RangeType> {
+    let Digits(digits) = d;
+    if digits % 2 == 1 {
+        return None;
+    }
+    Some(RangeType::pow(10, digits as u32 / 2) + 1)
+}
+
 // IO
 fn read_file(filename: &str) -> Result<String, IOError> {
     fs::read_to_string(filename).map_err(|e| {
@@ -99,8 +177,13 @@ fn read_file(filename: &str) -> Result<String, IOError> {
     })
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> Result<(), Box<dyn Error>> {
+    let contents = read_file("gift_shop/input.txt")?;
+    let ranges = parse_file(contents)?;
+    let silly_sum: RangeType = ranges.into_iter().flat_map(silly_numbers_in_range).sum();
+    println!("{silly_sum}");
+
+    Ok(())
 }
 
 #[cfg(test)]
