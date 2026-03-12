@@ -9,7 +9,7 @@ impl Range {
 #[test]
 fn test_parse_file_empty_string() {
     let input = String::from("");
-    let expected = Ok(Vec::<Range>::new());
+    let expected = Err(ParseError::EmptyInput);
 
     assert_eq!(parse_file(input), expected);
 }
@@ -95,7 +95,27 @@ fn test_parse_range_error_range_order() {
 fn test_parse_range_error_invalid_number_letters() {
     let input = "a34-kjfs";
     let expected = Err(ParseError::InvalidNumber {
-        input: String::from("a34-kjfs"),
+        input: String::from("a34"),
+    });
+
+    assert_eq!(parse_range(input), expected);
+}
+
+#[test]
+fn test_parse_range_error_invalid_number_decimals() {
+    let input = "1.20-123";
+    let expected = Err(ParseError::InvalidNumber {
+        input: String::from("1.20"),
+    });
+
+    assert_eq!(parse_range(input), expected);
+}
+
+#[test]
+fn test_parse_range_error_multiple_seps() {
+    let input = "1-23-45";
+    let expected = Err(ParseError::TooManySeparators {
+        input: input.to_string(),
     });
 
     assert_eq!(parse_range(input), expected);

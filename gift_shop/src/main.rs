@@ -20,6 +20,8 @@ enum ParseError {
     EmptyInput,
     #[error("missing '-' separator in '{input}'")]
     MissingSeparator { input: String },
+    #[error("too many '-' separators in '{input}'")]
+    TooManySeparators { input: String },
     #[error("start of range is greater than the end in '{input}'")]
     InvalidRangeOrder { input: String },
     #[error("failed to parse number: '{input}'")]
@@ -37,11 +39,46 @@ struct Range {
 }
 
 fn parse_file(s: String) -> Result<Vec<Range>, ParseError> {
-    Ok(vec![])
+    s.trim().split(",").map(parse_range).collect()
 }
 
 fn parse_range(s: &str) -> Result<Range, ParseError> {
-    Ok(Range { start: 0, end: 0 })
+    if s == "" {
+        return Err(ParseError::EmptyInput);
+    }
+    let vals: Vec<&str> = s.split("-").collect();
+    match vals.len() {
+        0 => unreachable!("&str::split() should always return at least one element."),
+        1 => {
+            return Err(ParseError::MissingSeparator {
+                input: s.to_string(),
+            });
+        }
+        2 => (),
+        _ => {
+            return Err(ParseError::TooManySeparators {
+                input: s.to_string(),
+            });
+        }
+    }
+    let start = vals[0]
+        .parse::<RangeType>()
+        .map_err(|_| ParseError::InvalidNumber {
+            input: vals[0].to_string(),
+        })?;
+    let end = vals[1]
+        .parse::<RangeType>()
+        .map_err(|_| ParseError::InvalidNumber {
+            input: vals[1].to_string(),
+        })?;
+
+    if start > end {
+        return Err(ParseError::InvalidRangeOrder {
+            input: s.to_string(),
+        });
+    }
+
+    Ok(Range { start, end })
 }
 
 // IO
