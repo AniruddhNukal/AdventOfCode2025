@@ -1,8 +1,7 @@
-use std::{error::Error, fs, io, ops::Add};
+use itertools::Itertools;
+use std::{error::Error, fs, io};
 
 use thiserror::Error;
-
-static EXPECT_MSG: &str = "If n is a silly number, sandwich(n) is guaranteed to exist.";
 
 #[derive(Debug, Error, PartialEq)]
 enum IOError {
@@ -31,35 +30,32 @@ enum ParseError {
 }
 
 // Range reps an inclusive range of values to be checked.
-type RangeType = u64;
+type RangeType = u128;
 #[derive(Debug, PartialEq, Clone)]
 struct Range {
     start: RangeType,
     end: RangeType,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-struct Digits(RangeType);
-
-impl Add for Digits {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        let Self(l) = self;
-        let Self(r) = rhs;
-        Self(l + r)
-    }
-}
-
 struct SillyIterator {
     curr: RangeType,
+    degree: u32,
+}
+
+impl SillyIterator {
+    fn new(start: RangeType, k: u32) -> Self {
+        Self {
+            curr: start - 1, // - 1 to count start if it is a silly number too
+            degree: k,
+        }
+    }
 }
 
 impl Iterator for SillyIterator {
     type Item = RangeType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.curr = next_silly_number(self.curr);
+        self.curr = next_silly_number(self.curr, self.degree);
         Some(self.curr)
     }
 }
@@ -107,56 +103,32 @@ fn parse_range(s: &str) -> Result<Range, ParseError> {
     Ok(Range { start, end })
 }
 
-fn is_silly_number(n: RangeType) -> bool {
-    let sandwich = match sandwich(n) {
-        Some(sw) => sw,
-        None => return false,
-    };
-    match n % sandwich {
-        0 => true,
-        _ => false,
-    }
+fn club(k: u32, p: u32) -> RangeType {
+    (0..k).map(|n| RangeType::pow(10, n * p)).sum()
 }
 
 fn silly_numbers_in_range(r: Range) -> Vec<RangeType> {
     let Range { start, end } = r;
-    let silly_iter = SillyIterator { curr: start - 1 };
-    let silly_nums = silly_iter.take_while(|&n| n <= end).collect();
+    let k_2 = SillyIterator::new(start, 2).take_while(|&n| n <= end);
+    let k_3 = SillyIterator::new(start, 3).take_while(|&n| n <= end);
+    let k_5 = SillyIterator::new(start, 5).take_while(|&n| n <= end);
+    let k_7 = SillyIterator::new(start, 7).take_while(|&n| n <= end);
 
-    silly_nums
+    k_2.chain(k_3).chain(k_5).chain(k_7).unique().collect()
 }
 
-fn next_silly_number(n: RangeType) -> RangeType {
-    if is_silly_number(n) && is_silly_number(n + sandwich(n).expect(EXPECT_MSG)) {
-        n + sandwich(n).expect(EXPECT_MSG)
-    } else if is_silly_number(n) {
-        let x = sandwich_digits(digits(n) + Digits(2)).expect("even digits + 2 is even");
-        x * (x / 10)
-    } else if let Some(sw) = sandwich(n) {
-        n + sw - (n % sw)
+fn next_silly_number(n: RangeType, k: u32) -> RangeType {
+    let d = match n {
+        0 => 1, // to cover the start = 1 case: iterator.start = start -1;
+        _ => RangeType::ilog10(n) + 1,
+    };
+    let p = d / k;
+    let c = club(k, p);
+    if d == p * k && (n != RangeType::pow(10, d) - 1) {
+        (n / c) * c + c
     } else {
-        let x = sandwich_digits(digits(n) + Digits(1)).expect("even digits + 2 is even");
-        x * (x / 10)
+        club(k, p + 1) * RangeType::pow(10, p)
     }
-}
-
-fn sandwich(n: RangeType) -> Option<RangeType> {
-    sandwich_digits(digits(n))
-}
-
-fn digits(n: RangeType) -> Digits {
-    if n == 0 {
-        return Digits(1);
-    }
-    Digits(RangeType::ilog10(n) as RangeType + 1)
-}
-
-fn sandwich_digits(d: Digits) -> Option<RangeType> {
-    let Digits(digits) = d;
-    if digits % 2 == 1 {
-        return None;
-    }
-    Some(RangeType::pow(10, digits as u32 / 2) + 1)
 }
 
 // IO
