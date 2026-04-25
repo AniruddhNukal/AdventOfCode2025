@@ -19,11 +19,15 @@ fn main() -> anyhow::Result<()> {
         count += tree.contains(i) as i32;
     }
 
-    println!("{count}");
+    println!("Valid ids from lists: {count}");
 
     let span = tree.span();
 
-    println!("{span}");
+    println!("Valid ids in total: {span}");
+
+    let num_nodes = tree.count();
+
+    println!("Number of tree nodes: {num_nodes}");
 
     Ok(())
 }

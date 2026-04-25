@@ -24,7 +24,7 @@ impl RangeNode {
     }
 
     fn insert_present_left(&self, val: Int) -> (Option<Box<Self>>, Int) {
-        if self.value.is_in_range(val) {
+        if self.value.is_in_range(val) || val == self.value.end + 1 {
             (self.left.clone(), self.value.start)
         } else if val < self.value.start {
             Self::insert_left(self.left.clone(), val)
@@ -42,7 +42,7 @@ impl RangeNode {
     }
 
     fn insert_present_right(&self, val: Int) -> (Option<Box<Self>>, Int) {
-        if self.value.is_in_range(val) {
+        if self.value.is_in_range(val) || val == self.value.start - 1 {
             (self.right.clone(), self.value.end)
         } else if val > self.value.end {
             Self::insert_right(self.right.clone(), val)
@@ -99,6 +99,13 @@ impl RangeNode {
             }
         }
     }
+
+    fn count(node: Option<Box<Self>>) -> Int {
+        match node {
+            None => 0,
+            Some(node) => 1 + Self::count(node.left) + Self::count(node.right)
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +131,10 @@ impl RangeTree {
 
     pub fn contains(&self, val: Int) -> bool {
         RangeNode::contains(self.root.clone(), val)
+    }
+
+    pub fn count(&self) -> Int {
+        RangeNode::count(self.root.clone())
     }
 }
 

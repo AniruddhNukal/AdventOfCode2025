@@ -40,6 +40,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "laboratories"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "thiserror",
+]
+
+[[package]]
 name = "lobby"
 version = "0.1.0"
 dependencies = [
